@@ -58,6 +58,7 @@ namespace TwitchSf.ChatIngestionSvc
             _chatClient.CanJoinChannels += () => Task.Run(JoinChannels);
 
             await _chatClient.ConnectAsync();
+            _chatClient.RunBackgroundProcessor(cancellationToken);
 
             //var myDictionary = await this.StateManager.GetOrAddAsync<IReliableDictionary<string, long>>("myDictionary");
 
@@ -65,7 +66,7 @@ namespace TwitchSf.ChatIngestionSvc
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                TwitchChatMessage[] chatMessages = await _chatClient.ReadLinesAsync(cancellationToken);
+                TwitchChatMessage[] chatMessages = _chatClient.GetAvailableChatMessages();
 
                 if (chatMessages.Length > 0)
                 {
@@ -101,6 +102,13 @@ namespace TwitchSf.ChatIngestionSvc
                     await channelDictionary.AddAsync(tx, "giantwaffle", new ChannelState());
                     await channelDictionary.AddAsync(tx, "thesleepydwarf_", new ChannelState());
                     await channelDictionary.AddAsync(tx, "pmsproxy", new ChannelState());
+                }
+
+                if (count == 6)
+                {
+                    // Hack to add some active streams
+                    ServiceEventSource.Current.ServiceMessage(Context, "Adding PBG");
+                    await channelDictionary.AddAsync(tx, "playbattlegrounds", new ChannelState());
                 }
 
                 await tx.CommitAsync();
@@ -141,6 +149,7 @@ namespace TwitchSf.ChatIngestionSvc
 
     internal class TwitchChatClient
     {
+        private readonly Queue<TwitchChatMessage> _outgoingChatMessages = new Queue<TwitchChatMessage>();
         private readonly TwitchChatConfiguration _chatConfiguration;
         private static readonly string ChatServer = "irc.chat.twitch.tv";
 
@@ -173,43 +182,58 @@ namespace TwitchSf.ChatIngestionSvc
             ServiceEventSource.Current.ChatConnectStop(ChatServer);
         }
 
-        public async Task<TwitchChatMessage[]> ReadLinesAsync(CancellationToken cancellationToken)
+        public void RunBackgroundProcessor(CancellationToken cancellationToken)
         {
-            Task timeoutTask = Task.Delay(250, cancellationToken);
-            List<TwitchChatMessage> chatMessages = null;
+            Task.Run(() => ReadLinesBackground(cancellationToken), cancellationToken);
+        }
 
-            while ((!_streamReader.EndOfStream || _tcpClient.Available > 0) && !timeoutTask.IsCompleted)
+        private async Task ReadLinesBackground(CancellationToken cancellationToken)
+        {
+            Task cancellationTask = Task.Run(() => cancellationToken.WaitHandle.WaitOne(), cancellationToken);
+
+            while (true)
             {
-                Task<string> streamTask = _streamReader.ReadLineAsync();
-                var completedTask = await Task.WhenAny(streamTask, timeoutTask);
-                if (completedTask != streamTask)
-                    break;
+                cancellationToken.ThrowIfCancellationRequested();
 
-                var message = await HandleLine(streamTask.Result);
+                // This allows us to cancel quickly without blocking on network
+                Task<string> streamReadTask = _streamReader.ReadLineAsync();
+                Task completedTask = await Task.WhenAny(streamReadTask, cancellationTask);
+
+                if (completedTask == cancellationTask)
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                var message = await HandleLine(streamReadTask.Result);
                 if (message.HasValue)
                 {
                     if (message.Value.Command == "PRIVMSG")
                     {
                         TwitchChatMessage chatMessage = ParseMessage(message.Value);
-                        if (chatMessages == null)
-                            chatMessages = new List<TwitchChatMessage>();
 
-                        chatMessages.Add(chatMessage);
+                        lock (_outgoingChatMessages)
+                        {
+                            _outgoingChatMessages.Enqueue(chatMessage);
+                        }
                     }
                     else
                     {
                         ServiceEventSource.Current.Message("Unkown IRC command type {0}", message.Value.Command);
                     }
                 }
-
-                if (chatMessages != null && chatMessages.Count > 100)
-                {
-                    // 100 Mesages is enough
-                    break;
-                }
             }
+        }
 
-            return chatMessages?.ToArray() ?? new TwitchChatMessage[0];
+        public TwitchChatMessage[] GetAvailableChatMessages()
+        {
+            if (_outgoingChatMessages.Count == 0)
+                return EmptyArray<TwitchChatMessage>.Value;
+
+            lock (_outgoingChatMessages)
+            {
+                TwitchChatMessage[] messages = _outgoingChatMessages.ToArray();
+                _outgoingChatMessages.Clear();
+
+                return messages;
+            }
         }
 
         public async Task JoinChannel(string channelName)
@@ -607,5 +631,10 @@ namespace TwitchSf.ChatIngestionSvc
         {
             throw new NotImplementedException();
         }
+    }
+
+    internal static class EmptyArray<T>
+    {
+        public static readonly T[] Value = new T[0];
     }
 }
