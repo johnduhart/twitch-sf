@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.ChatIngestionSvc",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.WebSvc", "TwitchSf.WebSvc\TwitchSf.WebSvc.csproj", "{C68C772E-D2A4-4947-9474-766389BB8DDB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.ChannelDirectoryService", "TwitchSf.ChannelDirectoryService\TwitchSf.ChannelDirectoryService.csproj", "{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,12 @@ Global
 		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|x64.ActiveCfg = Release|Any CPU
 		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|x64.Build.0 = Release|Any CPU
+		{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}.Debug|x64.ActiveCfg = Debug|x64
+		{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}.Debug|x64.Build.0 = Debug|x64
+		{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}.Release|Any CPU.ActiveCfg = Release|x64
+		{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}.Release|x64.ActiveCfg = Release|x64
+		{1E7AE990-8BE1-4ACF-8AF7-2690B1117CF3}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

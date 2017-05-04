@@ -1,6 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ApplicationManifest xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ApplicationTypeName="TwitchSfType" ApplicationTypeVersion="1.0.0" xmlns="http://schemas.microsoft.com/2011/01/fabric">
   <Parameters>
+    <Parameter Name="ChannelDirectoryService_MinReplicaSetSize" DefaultValue="3" />
+    <Parameter Name="ChannelDirectoryService_PartitionCount" DefaultValue="1" />
+    <Parameter Name="ChannelDirectoryService_TargetReplicaSetSize" DefaultValue="3" />
     <Parameter Name="WebSvc_InstanceCount" DefaultValue="-1" />
     <Parameter Name="ChatIngestionSvc_MinReplicaSetSize" DefaultValue="3" />
     <Parameter Name="ChatIngestionSvc_PartitionCount" DefaultValue="1" />
@@ -11,6 +14,10 @@
   <!-- Import the ServiceManifest from the ServicePackage. The ServiceManifestName and ServiceManifestVersion
        should match the Name and Version attributes of the ServiceManifest element defined in the
        ServiceManifest.xml file. -->
+  <ServiceManifestImport>
+    <ServiceManifestRef ServiceManifestName="TwitchSf.ChannelDirectoryServicePkg" ServiceManifestVersion="1.0.0" />
+    <ConfigOverrides />
+  </ServiceManifestImport>
   <ServiceManifestImport>
     <ServiceManifestRef ServiceManifestName="TwitchSf.WebSvcPkg" ServiceManifestVersion="1.0.0" />
     <ConfigOverrides />
@@ -34,6 +41,11 @@
          ServiceFabric PowerShell module.
 
          The attribute ServiceTypeName below must match the name defined in the imported ServiceManifest.xml file. -->
+    <Service Name="ChannelDirectoryService">
+      <StatefulService ServiceTypeName="ChannelDirectoryServiceType" TargetReplicaSetSize="[ChannelDirectoryService_TargetReplicaSetSize]" MinReplicaSetSize="[ChannelDirectoryService_MinReplicaSetSize]">
+        <UniformInt64Partition PartitionCount="[ChannelDirectoryService_PartitionCount]" LowKey="-9223372036854775808" HighKey="9223372036854775807" />
+      </StatefulService>
+    </Service>
     <Service Name="WebSvc">
       <StatelessService ServiceTypeName="WebSvcType" InstanceCount="[WebSvc_InstanceCount]">
         <SingletonPartition />

@@ -30,6 +30,7 @@
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TwitchSf.ChannelDirectoryService\TwitchSf.ChannelDirectoryService.csproj" />
     <ProjectReference Include="..\TwitchSf.ChatIngestionSvc\TwitchSf.ChatIngestionSvc.csproj" />
     <ProjectReference Include="..\TwitchSf.WebSvc\TwitchSf.WebSvc.csproj" />
   </ItemGroup>
