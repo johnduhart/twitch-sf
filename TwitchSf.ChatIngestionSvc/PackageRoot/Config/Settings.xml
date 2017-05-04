@@ -13,4 +13,9 @@
     <Parameter Name="MyParameter" Value="Value1" />
   </Section>
   -->
+
+  <Section Name="ChatConfig">
+    <Parameter Name="Nickname" Value="" />
+    <Parameter Name="OAuth" Value="" />
+  </Section>
 </Settings>

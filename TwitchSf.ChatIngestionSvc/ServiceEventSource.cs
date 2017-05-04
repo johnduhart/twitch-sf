@@ -9,7 +9,7 @@ using Microsoft.ServiceFabric.Services.Runtime;
 
 namespace TwitchSf.ChatIngestionSvc
 {
-    [EventSource(Name = "MyCompany-TwitchSf-ChatIngestionSvc")]
+    [EventSource(Name = "TwitchSf-ChatIngestionSvc")]
     internal sealed class ServiceEventSource : EventSource
     {
         public static readonly ServiceEventSource Current = new ServiceEventSource();
@@ -25,7 +25,7 @@ namespace TwitchSf.ChatIngestionSvc
         private ServiceEventSource() : base() { }
 
         #region Keywords
-        // Event keywords can be used to categorize events. 
+        // Event keywords can be used to categorize events.
         // Each keyword is a bit flag. A single event can be associated with multiple keywords (via EventAttribute.Keywords property).
         // Keywords must be defined as a public class named 'Keywords' inside EventSource that uses them.
         public static class Keywords
@@ -151,6 +151,20 @@ namespace TwitchSf.ChatIngestionSvc
         public void ServiceRequestStop(string requestTypeName, string exception = "")
         {
             WriteEvent(ServiceRequestStopEventId, requestTypeName, exception);
+        }
+
+        private const int ChatConnectStartEventId = 7;
+        [Event(ChatConnectStartEventId, Level = EventLevel.Informational, Message = "Connecting to chat server '{0}'...")]
+        public void ChatConnectStart(string chatServer)
+        {
+            WriteEvent(ChatConnectStartEventId, chatServer);
+        }
+
+        private const int ChatConnectStopEventId = 8;
+        [Event(ChatConnectStopEventId, Level = EventLevel.Informational, Message = "Connected to chat server '{0}'")]
+        public void ChatConnectStop(string chatServer)
+        {
+            WriteEvent(ChatConnectStopEventId, chatServer);
         }
         #endregion
 
