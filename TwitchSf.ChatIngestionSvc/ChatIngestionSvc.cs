@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Fabric;
+using System.Fabric.Description;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -22,8 +23,9 @@ namespace TwitchSf.ChatIngestionSvc
     /// </summary>
     internal sealed class ChatIngestionSvc : StatefulService
     {
-        internal const string ChannelDictionary = "channels";
+        private const string ChannelDictionary = "channels";
 
+        private TwitchChatConfiguration _chatConfiguration;
         private TwitchChatClient _chatClient;
 
         public ChatIngestionSvc(StatefulServiceContext context)
@@ -49,9 +51,10 @@ namespace TwitchSf.ChatIngestionSvc
         /// <param name="cancellationToken">Canceled when Service Fabric needs to shut down this service replica.</param>
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {
+            LoadChatConfiguration();
             await PrepopulateChannelList();
 
-            _chatClient = new TwitchChatClient();
+            _chatClient = new TwitchChatClient(_chatConfiguration);
             _chatClient.CanJoinChannels += () => Task.Run(JoinChannels);
 
             await _chatClient.ConnectAsync();
@@ -71,6 +74,13 @@ namespace TwitchSf.ChatIngestionSvc
 
                 await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken);
             }
+        }
+
+        private void LoadChatConfiguration()
+        {
+            var configurationPackage = Context.CodePackageActivationContext.GetConfigurationPackageObject("Config");
+            ConfigurationSection chatSection = configurationPackage.Settings.Sections["ChatConfig"];
+            _chatConfiguration = new TwitchChatConfiguration(chatSection.Parameters["Nickname"].Value, chatSection.Parameters["OAuth"].Value);
         }
 
         private async Task PrepopulateChannelList()
@@ -111,6 +121,18 @@ namespace TwitchSf.ChatIngestionSvc
         }
     }
 
+    internal class TwitchChatConfiguration
+    {
+        public TwitchChatConfiguration(string nickname, string oAuth)
+        {
+            Nickname = nickname;
+            OAuth = oAuth;
+        }
+
+        public string Nickname { get; }
+        public string OAuth { get; }
+    }
+
     [DataContract]
     struct ChannelState
     {
@@ -119,6 +141,7 @@ namespace TwitchSf.ChatIngestionSvc
 
     internal class TwitchChatClient
     {
+        private readonly TwitchChatConfiguration _chatConfiguration;
         private static readonly string ChatServer = "irc.chat.twitch.tv";
 
         public event Action CanJoinChannels;
@@ -126,6 +149,11 @@ namespace TwitchSf.ChatIngestionSvc
         private StreamReader _streamReader;
         private StreamWriter _streamWriter;
         private TcpClient _tcpClient;
+
+        public TwitchChatClient(TwitchChatConfiguration chatConfiguration)
+        {
+            _chatConfiguration = chatConfiguration;
+        }
 
         public async Task ConnectAsync()
         {
@@ -138,8 +166,8 @@ namespace TwitchSf.ChatIngestionSvc
             _streamReader = new StreamReader(stream, new UTF8Encoding(false));
             _streamWriter = new StreamWriter(stream, new UTF8Encoding(false));
 
-            await _streamWriter.WriteLineAsync("PASS ...");
-            await _streamWriter.WriteLineAsync("NICK are_your_ears_bleeding");
+            await _streamWriter.WriteLineAsync("PASS " + _chatConfiguration.OAuth);
+            await _streamWriter.WriteLineAsync("NICK " + _chatConfiguration.Nickname);
             await _streamWriter.FlushAsync();
 
             ServiceEventSource.Current.ChatConnectStop(ChatServer);
