@@ -1,10 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Application xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Name="fabric:/TwitchSf" xmlns="http://schemas.microsoft.com/2011/01/fabric">
   <Parameters>
+    <Parameter Name="WebSvc_InstanceCount" Value="1" />
     <Parameter Name="ChatIngestionSvc_PartitionCount" Value="1" />
     <Parameter Name="ChatIngestionSvc_MinReplicaSetSize" Value="1" />
     <Parameter Name="ChatIngestionSvc_TargetReplicaSetSize" Value="1" />
     <Parameter Name="Chat_Nickname" Value="are_your_ears_bleeding" />
-    <Parameter Name="Chat_OAuth" Value="" />
+    <Parameter Name="Chat_OAuth" Value="oauth:..." />
   </Parameters>
 </Application>

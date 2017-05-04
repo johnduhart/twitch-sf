@@ -7,22 +7,38 @@ Project("{A07B5EB6-E848-4116-A8D0-A826331D98C6}") = "TwitchSf", "TwitchSf\Twitch
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.ChatIngestionSvc", "TwitchSf.ChatIngestionSvc\TwitchSf.ChatIngestionSvc.csproj", "{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.WebSvc", "TwitchSf.WebSvc\TwitchSf.WebSvc.csproj", "{C68C772E-D2A4-4947-9474-766389BB8DDB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
 		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Debug|x64.ActiveCfg = Debug|x64
 		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Debug|x64.Build.0 = Debug|x64
 		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Debug|x64.Deploy.0 = Debug|x64
+		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Release|Any CPU.ActiveCfg = Release|x64
 		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Release|x64.ActiveCfg = Release|x64
 		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Release|x64.Build.0 = Release|x64
 		{289A6999-22D3-4D10-8FAE-A73F38CB3694}.Release|x64.Deploy.0 = Release|x64
+		{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}.Debug|x64.ActiveCfg = Debug|x64
 		{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}.Debug|x64.Build.0 = Debug|x64
+		{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}.Release|Any CPU.ActiveCfg = Release|x64
 		{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}.Release|x64.ActiveCfg = Release|x64
 		{25CAD5E8-8722-4EB9-A4F0-7BAD3E296E84}.Release|x64.Build.0 = Release|x64
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Debug|x64.Build.0 = Debug|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|x64.ActiveCfg = Release|Any CPU
+		{C68C772E-D2A4-4947-9474-766389BB8DDB}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
