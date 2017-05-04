@@ -189,7 +189,7 @@ namespace TwitchSf.ChatIngestionSvc
 
         private async Task ReadLinesBackground(CancellationToken cancellationToken)
         {
-            Task cancellationTask = Task.Run(() => cancellationToken.WaitHandle.WaitOne(), cancellationToken);
+            Task cancellationTask = Task.Delay(Timeout.Infinite, cancellationToken);
 
             while (true)
             {
