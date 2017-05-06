@@ -21,7 +21,7 @@ namespace TwitchSf.WebSvc.Controllers
         {
             IChannelDirectoryService channelDirectoryService = ServiceProxy.Create<IChannelDirectoryService>(
                 new Uri("fabric:/TwitchSf/ChannelDirectoryService"),
-                new ServicePartitionKey(1),
+                ServicePartitionKey.Singleton,
                 targetReplicaSelector: TargetReplicaSelector.RandomReplica);
 
             return await channelDirectoryService.GetChannelsAsync();
@@ -35,9 +35,15 @@ namespace TwitchSf.WebSvc.Controllers
         }
 
         // POST api/values
-        [HttpPost]
-        public void Post([FromBody]string value)
+        [HttpPost("{userName}")]
+        public async Task Post(string userName)
         {
+            IChannelDirectoryService channelDirectoryService = ServiceProxy.Create<IChannelDirectoryService>(
+                new Uri("fabric:/TwitchSf/ChannelDirectoryService"),
+                ServicePartitionKey.Singleton,
+                targetReplicaSelector: TargetReplicaSelector.RandomReplica);
+
+            await channelDirectoryService.AddChannelByNameAsync(userName);
         }
 
         // PUT api/values/5

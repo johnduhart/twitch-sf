@@ -3,6 +3,9 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.ServiceFabric.Services.Runtime;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 namespace TwitchSf.ChannelDirectoryService
 {
@@ -15,6 +18,10 @@ namespace TwitchSf.ChannelDirectoryService
         {
             try
             {
+                Log.Logger = new LoggerConfiguration()
+                    .WriteTo.Sink<EventSourceSink>()
+                    .CreateLogger();
+
                 // The ServiceManifest.XML file defines one or more service type names.
                 // Registering a service maps a service type name to a .NET type.
                 // When Service Fabric creates an instance of this service type,
@@ -33,6 +40,14 @@ namespace TwitchSf.ChannelDirectoryService
                 ServiceEventSource.Current.ServiceHostInitializationFailed(e.ToString());
                 throw;
             }
+        }
+    }
+
+    internal class EventSourceSink : ILogEventSink
+    {
+        public void Emit(LogEvent logEvent)
+        {
+            ServiceEventSource.Current.Message(logEvent.RenderMessage());
         }
     }
 }

@@ -13,6 +13,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.ChannelDirectorySe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.ChannelDirectoryService.Interfaces", "TwitchSf.ChannelDirectoryService.Interfaces\TwitchSf.ChannelDirectoryService.Interfaces.csproj", "{0C0A7566-AD9D-44C3-B0A9-EEB7D42B05D4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common", "Common", "{4FA3144C-10E8-49CC-8944-AE07EBC08877}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitchSf.Common.TwitchApiClient", "TwitchSf.Common.TwitchApiClient\TwitchSf.Common.TwitchApiClient.csproj", "{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,8 +61,19 @@ Global
 		{0C0A7566-AD9D-44C3-B0A9-EEB7D42B05D4}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0C0A7566-AD9D-44C3-B0A9-EEB7D42B05D4}.Release|x64.ActiveCfg = Release|Any CPU
 		{0C0A7566-AD9D-44C3-B0A9-EEB7D42B05D4}.Release|x64.Build.0 = Release|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Debug|x64.Build.0 = Debug|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Release|x64.ActiveCfg = Release|Any CPU
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D6251B3B-B0C1-4BEA-A874-98D7A55CFBB6} = {4FA3144C-10E8-49CC-8944-AE07EBC08877}
 	EndGlobalSection
 EndGlobal
