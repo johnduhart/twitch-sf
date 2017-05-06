@@ -53,10 +53,10 @@
         <SingletonPartition />
       </StatelessService>
     </Service>
-    <Service Name="ChatIngestionSvc">
+    <!--<Service Name="ChatIngestionSvc">
       <StatefulService ServiceTypeName="ChatIngestionSvcType" TargetReplicaSetSize="[ChatIngestionSvc_TargetReplicaSetSize]" MinReplicaSetSize="[ChatIngestionSvc_MinReplicaSetSize]">
         <SingletonPartition />
       </StatefulService>
-    </Service>
+    </Service>-->
   </DefaultServices>
 </ApplicationManifest>
