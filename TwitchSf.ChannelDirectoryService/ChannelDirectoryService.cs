@@ -5,13 +5,16 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.ServiceFabric.Data;
 using Microsoft.ServiceFabric.Data.Collections;
+using Microsoft.ServiceFabric.Data.Notifications;
 using Microsoft.ServiceFabric.Services.Communication.Runtime;
 using Microsoft.ServiceFabric.Services.Remoting.Runtime;
 using Microsoft.ServiceFabric.Services.Runtime;
 using Serilog;
 using Serilog.Core;
 using TwitchSf.ChannelDirectoryService.Interfaces;
+using TwitchSf.Common.ServiceFabric;
 using TwitchSf.Common.TwitchApiClient;
 
 namespace TwitchSf.ChannelDirectoryService
@@ -21,9 +24,14 @@ namespace TwitchSf.ChannelDirectoryService
     /// </summary>
     internal sealed class ChannelDirectoryService : StatefulService, IChannelDirectoryService
     {
-        public ChannelDirectoryService(StatefulServiceContext context)
-            : base(context)
-        { }
+        private readonly SubsystemManager _subsystemManager;
+
+        public ChannelDirectoryService(StatefulServiceContext serviceContext,
+            ReliableStateManager reliableStateManagerReplica, SubsystemManager subsystemManager) : base(serviceContext,
+            reliableStateManagerReplica)
+        {
+            _subsystemManager = subsystemManager;
+        }
 
         /// <summary>
         /// Optional override to create listeners (e.g., HTTP, Service Remoting, WCF, etc.) for this service replica to handle client or user requests.
@@ -47,6 +55,8 @@ namespace TwitchSf.ChannelDirectoryService
         /// <param name="cancellationToken">Canceled when Service Fabric needs to shut down this service replica.</param>
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {
+            await _subsystemManager.StartAll();
+
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -97,7 +107,7 @@ namespace TwitchSf.ChannelDirectoryService
 
             using (var tx = StateManager.CreateTransaction())
             {
-                var channelList = await StateManager.GetOrAddAsync<IReliableDictionary<string, TwitchChannelState>>(tx, "channelList");
+                var channelList = await StateManager.GetChannelList(tx);
 
                 if (await channelList.ContainsKeyAsync(tx, channelState.Id))
                 {
@@ -115,6 +125,87 @@ namespace TwitchSf.ChannelDirectoryService
         public Task<Guid> AddChannelByIdAsync(string channelId)
         {
             throw new NotImplementedException();
+        }
+
+        //internal
+    }
+
+    internal static class StateConstants
+    {
+        public const string ChannelList = "channelList";
+    }
+
+    internal static class StateManagerExtensions
+    {
+        public static Task<IReliableDictionary<string, TwitchChannelState>> GetChannelList(this IReliableStateManager stateManager)
+            => stateManager.GetOrAddAsync<IReliableDictionary<string, TwitchChannelState>>(StateConstants.ChannelList);
+
+        public static Task<IReliableDictionary<string, TwitchChannelState>> GetChannelList(this IReliableStateManager stateManager, ITransaction transaction)
+            => stateManager.GetOrAddAsync<IReliableDictionary<string, TwitchChannelState>>(transaction, StateConstants.ChannelList);
+    }
+
+    internal class SubsystemManager
+    {
+        private readonly ILogger _log;
+        private readonly HashSet<ISubsystem> _subsystems;
+
+        public SubsystemManager(IEnumerable<ISubsystem> subsystems, ILogger log)
+        {
+            _log = log;
+            _subsystems = new HashSet<ISubsystem>(subsystems);
+        }
+
+        public async Task StartAll()
+        {
+            _log.Debug("Starting {0} subsystems", _subsystems.Count);
+
+            foreach (ISubsystem subsytem in _subsystems)
+            {
+                _log.Debug("Starting subsystem: {subsystemName}", subsytem.GetType());
+                await subsytem.Start();
+            }
+        }
+    }
+
+    internal interface ISubsystem
+    {
+        Task Start();
+    }
+
+    internal class TwitchChannelUpdaterSubsystem : ISubsystem
+    {
+        private readonly IReliableStateManager _stateManager;
+        private Dictionary<string, ChannelUpdateState> _channelUpdateStates = new Dictionary<string, ChannelUpdateState>();
+
+        public TwitchChannelUpdaterSubsystem(IReliableStateManager stateManager)
+        {
+            _stateManager = stateManager;
+        }
+
+        public async Task Start()
+        {
+            _channelUpdateStates.Clear();
+
+            var channelList = await _stateManager.GetChannelList();
+
+            using (var transaction = _stateManager.CreateTransaction())
+            {
+                var enumerable = await channelList.CreateEnumerableAsync(transaction, EnumerationMode.Unordered);
+                await enumerable.ForeachAsync(CancellationToken.None,
+                    pair => _channelUpdateStates.Add(pair.Key, new ChannelUpdateState()));
+            }
+
+            channelList.DictionaryChanged += ChannelListChanged;
+        }
+
+        private void ChannelListChanged(object sender, NotifyDictionaryChangedEventArgs<string, TwitchChannelState> notifyDictionaryChangedEventArgs)
+        {
+            // TODO: Implement
+        }
+
+        internal class ChannelUpdateState
+        {
+            //
         }
     }
 

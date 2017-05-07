@@ -40,6 +40,12 @@
     <IsServiceFabricServiceProject>true</IsServiceFabricServiceProject>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Autofac, Version=4.5.0.0, Culture=neutral, PublicKeyToken=17863af14b0044da, processorArchitecture=MSIL">
+      <HintPath>..\packages\Autofac.4.5.0\lib\net45\Autofac.dll</HintPath>
+    </Reference>
+    <Reference Include="AutofacSerilogIntegration, Version=1.0.0.0, Culture=neutral, PublicKeyToken=d672c67444a98ac9, processorArchitecture=MSIL">
+      <HintPath>..\packages\AutofacSerilogIntegration.2.0.0\lib\net45\AutofacSerilogIntegration.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.ServiceFabric.Data, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=AMD64">
       <HintPath>..\packages\Microsoft.ServiceFabric.Data.2.5.216\lib\net45\Microsoft.ServiceFabric.Data.dll</HintPath>
     </Reference>
@@ -100,6 +106,10 @@
     <ProjectReference Include="..\TwitchSf.ChannelDirectoryService.Interfaces\TwitchSf.ChannelDirectoryService.Interfaces.csproj">
       <Project>{0c0a7566-ad9d-44c3-b0a9-eeb7d42b05d4}</Project>
       <Name>TwitchSf.ChannelDirectoryService.Interfaces</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TwitchSf.Common.ServiceFabric\TwitchSf.Common.ServiceFabric.csproj">
+      <Project>{80de4d0d-72cf-4c91-bd7f-34892c88f445}</Project>
+      <Name>TwitchSf.Common.ServiceFabric</Name>
     </ProjectReference>
     <ProjectReference Include="..\TwitchSf.Common.TwitchApiClient\TwitchSf.Common.TwitchApiClient.csproj">
       <Project>{d6251b3b-b0c1-4bea-a874-98d7a55cfbb6}</Project>
