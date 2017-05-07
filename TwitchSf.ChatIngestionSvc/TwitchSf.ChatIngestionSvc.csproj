@@ -115,6 +115,12 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TwitchSf.Common.ServiceFabric\TwitchSf.Common.ServiceFabric.csproj">
+      <Project>{80de4d0d-72cf-4c91-bd7f-34892c88f445}</Project>
+      <Name>TwitchSf.Common.ServiceFabric</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
