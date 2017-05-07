@@ -25,12 +25,14 @@ namespace TwitchSf.ChannelDirectoryService
     internal sealed class ChannelDirectoryService : StatefulService, IChannelDirectoryService
     {
         private readonly SubsystemManager _subsystemManager;
+        private readonly TwitchChannelManager _channelManager;
 
         public ChannelDirectoryService(StatefulServiceContext serviceContext,
-            ReliableStateManager reliableStateManagerReplica, SubsystemManager subsystemManager) : base(serviceContext,
+            ReliableStateManager reliableStateManagerReplica, SubsystemManager subsystemManager, TwitchChannelManager channelManager) : base(serviceContext,
             reliableStateManagerReplica)
         {
             _subsystemManager = subsystemManager;
+            _channelManager = channelManager;
         }
 
         /// <summary>
@@ -82,44 +84,9 @@ namespace TwitchSf.ChannelDirectoryService
             });
         }
 
-        public async Task<Guid> AddChannelByNameAsync(string channelName)
+        public Task AddChannelByNameAsync(string channelName)
         {
-            Log.Debug("Adding Twitch channel by name {channelName}", channelName);
-
-            var twitchClient = new TwitchClient();
-            var userEntity = await twitchClient.GetUserByName(channelName);
-
-            if (userEntity == null)
-            {
-                // IDK
-                return Guid.Empty;
-            }
-
-            var channelEntity = await twitchClient.GetChannelById(userEntity.Id);
-
-            if (channelEntity == null)
-            {
-                // IDK
-                return Guid.Empty;
-            }
-
-            var channelState = new TwitchChannelState(userEntity.DisplayName, channelEntity.Id);
-
-            using (var tx = StateManager.CreateTransaction())
-            {
-                var channelList = await StateManager.GetChannelList(tx);
-
-                if (await channelList.ContainsKeyAsync(tx, channelState.Id))
-                {
-                    Log.Information("Attempted to add channel {channelId}, which already existed", channelState.Id);
-                    return Guid.Empty;
-                }
-
-                await channelList.AddAsync(tx, channelState.Id, channelState);
-
-                await tx.CommitAsync();
-                throw new NotImplementedException();
-            }
+            return _channelManager.AddChannelByName(channelName);
         }
 
         public Task<Guid> AddChannelByIdAsync(string channelId)
@@ -128,6 +95,60 @@ namespace TwitchSf.ChannelDirectoryService
         }
 
         //internal
+    }
+
+    internal class TwitchChannelManager
+    {
+        private readonly ILogger _log;
+        private readonly ITwitchClient _twitchClient;
+        private readonly IReliableStateManager _stateManager;
+
+        public TwitchChannelManager(ILogger log, ITwitchClient twitchClient, IReliableStateManager stateManager)
+        {
+            _log = log;
+            _twitchClient = twitchClient;
+            _stateManager = stateManager;
+        }
+
+        public async Task AddChannelByName(string channelName)
+        {
+            _log.Debug("Adding Twitch channel by name {channelName}", channelName);
+
+            var userEntity = await _twitchClient.GetUserByName(channelName);
+
+            if (userEntity == null)
+            {
+                // IDK
+                return;
+            }
+
+            var channelEntity = await _twitchClient.GetChannelById(userEntity.Id);
+
+            if (channelEntity == null)
+            {
+                // IDK
+                return;
+            }
+
+            var channelState = new TwitchChannelState(userEntity.DisplayName, channelEntity.Id);
+
+            using (var tx = _stateManager.CreateTransaction())
+            {
+                var channelList = await _stateManager.GetChannelList(tx);
+
+                if (await channelList.ContainsKeyAsync(tx, channelState.Id))
+                {
+                    _log.Information("Attempted to add channel {channelId}, which already existed", channelState.Id);
+                    return;
+                }
+
+                await channelList.AddAsync(tx, channelState.Id, channelState);
+
+                await tx.CommitAsync();
+            }
+
+            _log.Debug("Channel {channelName} added", channelName);
+        }
     }
 
     internal static class StateConstants
@@ -174,12 +195,14 @@ namespace TwitchSf.ChannelDirectoryService
 
     internal class TwitchChannelUpdaterSubsystem : ISubsystem
     {
+        private readonly ILogger _logger;
         private readonly IReliableStateManager _stateManager;
         private Dictionary<string, ChannelUpdateState> _channelUpdateStates = new Dictionary<string, ChannelUpdateState>();
 
-        public TwitchChannelUpdaterSubsystem(IReliableStateManager stateManager)
+        public TwitchChannelUpdaterSubsystem(IReliableStateManager stateManager, ILogger logger)
         {
             _stateManager = stateManager;
+            _logger = logger;
         }
 
         public async Task Start()
@@ -200,6 +223,7 @@ namespace TwitchSf.ChannelDirectoryService
 
         private void ChannelListChanged(object sender, NotifyDictionaryChangedEventArgs<string, TwitchChannelState> notifyDictionaryChangedEventArgs)
         {
+            _logger.Debug("Recieved dictionary notification {notificationType}", notifyDictionaryChangedEventArgs.Action);
             // TODO: Implement
         }
 
@@ -209,10 +233,14 @@ namespace TwitchSf.ChannelDirectoryService
         }
     }
 
+    [DataContract]
     internal struct TwitchChannelState
     {
-        public string DisplayName { get; }
-        public string Id { get; }
+        [DataMember]
+        public string DisplayName { get; private set; }
+
+        [DataMember]
+        public string Id { get; private set; }
 
         public TwitchChannelState(string displayName, string id)
         {

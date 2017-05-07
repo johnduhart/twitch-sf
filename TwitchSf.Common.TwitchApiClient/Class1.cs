@@ -3,11 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Autofac;
 using NTwitch.Rest;
 using NTwitch.Rest.API;
+using Serilog;
+using Serilog.Events;
 
 namespace TwitchSf.Common.TwitchApiClient
 {
+    public class TwitchModule : Module
+    {
+        protected override void Load(ContainerBuilder builder)
+        {
+            builder.RegisterType<TwitchClient>().As<ITwitchClient>();
+        }
+    }
+
     public class TwitchClientFactory
     {
         public void Temp()
@@ -28,14 +39,20 @@ namespace TwitchSf.Common.TwitchApiClient
 
     public class TwitchClient : ITwitchClient
     {
+        private readonly ILogger _log;
         private readonly TwitchRestClient _restClient = new TwitchRestClient(new TwitchRestConfig
         {
             ClientId = "iwvho9zsd4qecukg9trgi4w3s9ygdv"
         });
 
+        public TwitchClient(ILogger log)
+        {
+            _log = log;
+        }
+
         public async Task<TwitchUserEntity> GetUserByName(string userName)
         {
-            var userCollection = await _restClient.GetUsersAsync(userName);
+            var userCollection = await Request(nameof(GetUserByName), c => c.GetUsersAsync(userName));
 
             if (userCollection.Count <= 0)
                 return null;
@@ -45,9 +62,31 @@ namespace TwitchSf.Common.TwitchApiClient
 
         public async Task<TwitchChannelEntity> GetChannelById(string id)
         {
-            var channel = await _restClient.GetChannelAsync(ulong.Parse(id));
+            var channel = await Request(nameof(GetChannelById), c => c.GetChannelAsync(ulong.Parse(id)));
 
             return channel.ToEntity();
+        }
+
+        private async Task<TReturn> Request<TReturn>(string requestName, Func<TwitchRestClient, Task<TReturn>> action)
+        {
+            _log.Verbose("Beginning request {requestName}", requestName);
+
+            try
+            {
+                TReturn result = await action(_restClient);
+
+                if (_log.IsEnabled(LogEventLevel.Verbose))
+                {
+                    _log.Verbose("Request {requestName} completed. Result: {@result}", requestName, result);
+                }
+
+                return result;
+            }
+            catch (NTwitch.Rest.HttpException e)
+            {
+                _log.Error(e, "Exception occured on request {requestName}", requestName);
+                throw;
+            }
         }
     }
 

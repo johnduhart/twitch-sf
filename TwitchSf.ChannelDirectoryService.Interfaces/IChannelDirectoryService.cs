@@ -9,7 +9,7 @@ namespace TwitchSf.ChannelDirectoryService.Interfaces
     {
         Task<IEnumerable<TwitchChannel>> GetChannelsAsync();
 
-        Task<Guid> AddChannelByNameAsync(string channelName);
+        Task AddChannelByNameAsync(string channelName);
         Task<Guid> AddChannelByIdAsync(string channelId);
     }
 }

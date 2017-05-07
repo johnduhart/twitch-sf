@@ -14,6 +14,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting;
 using Serilog.Formatting.Display;
+using TwitchSf.Common.TwitchApiClient;
 
 namespace TwitchSf.ChannelDirectoryService
 {
@@ -59,6 +60,9 @@ namespace TwitchSf.ChannelDirectoryService
                             builder.RegisterType<SubsystemManager>()
                                 .AsSelf()
                                 .SingleInstance();
+                            builder.RegisterType<TwitchChannelManager>()
+                                .AsSelf()
+                                .SingleInstance();
 
                             builder.RegisterType<TwitchChannelUpdaterSubsystem>().As<ISubsystem>().InstancePerDependency();
 
@@ -84,6 +88,8 @@ namespace TwitchSf.ChannelDirectoryService
         private static IContainer BuildRootContainer()
         {
             var builder = new ContainerBuilder();
+
+            builder.RegisterModule<TwitchModule>();
 
             return builder.Build();
         }
