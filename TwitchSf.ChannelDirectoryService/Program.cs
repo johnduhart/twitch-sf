@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Fabric;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Autofac;
@@ -11,6 +12,8 @@ using Microsoft.ServiceFabric.Services.Runtime;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Serilog.Formatting;
+using Serilog.Formatting.Display;
 
 namespace TwitchSf.ChannelDirectoryService
 {
@@ -132,9 +135,23 @@ namespace TwitchSf.ChannelDirectoryService
 
     internal class EventSourceSink : ILogEventSink
     {
+        private readonly ITextFormatter _textFormatter;
+
+        public EventSourceSink()
+        {
+            _textFormatter = new MessageTemplateTextFormatter("[{Level}] {SourceContext}: {Message}{NewLine}{Exception}", null);
+        }
+
         public void Emit(LogEvent logEvent)
         {
-            ServiceEventSource.Current.Message(logEvent.RenderMessage());
+            string logMessage;
+            using (StringWriter stringWriter = new StringWriter())
+            {
+                _textFormatter.Format(logEvent, stringWriter);
+                logMessage = stringWriter.ToString();
+            }
+
+            ServiceEventSource.Current.LogMessage(logEvent, logMessage);
         }
     }
 }

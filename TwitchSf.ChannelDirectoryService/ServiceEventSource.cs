@@ -6,11 +6,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.ServiceFabric.Services.Runtime;
+using Serilog.Events;
 
 namespace TwitchSf.ChannelDirectoryService
 {
+    internal interface ISerilogEventSource
+    {
+    }
+
     [EventSource(Name = "MyCompany-TwitchSf-ChannelDirectoryService")]
-    internal sealed class ServiceEventSource : EventSource
+    internal sealed class ServiceEventSource : EventSource, ISerilogEventSource
     {
         public static readonly ServiceEventSource Current = new ServiceEventSource();
 
@@ -25,7 +30,7 @@ namespace TwitchSf.ChannelDirectoryService
         private ServiceEventSource() : base() { }
 
         #region Keywords
-        // Event keywords can be used to categorize events. 
+        // Event keywords can be used to categorize events.
         // Each keyword is a bit flag. A single event can be associated with multiple keywords (via EventAttribute.Keywords property).
         // Keywords must be defined as a public class named 'Keywords' inside EventSource that uses them.
         public static class Keywords
@@ -151,6 +156,38 @@ namespace TwitchSf.ChannelDirectoryService
         public void ServiceRequestStop(string requestTypeName, string exception = "")
         {
             WriteEvent(ServiceRequestStopEventId, requestTypeName, exception);
+        }
+
+        [NonEvent]
+        public void LogMessage(LogEvent logEvent, string renderedMessage)
+        {
+            if (logEvent.Exception == null)
+            {
+                LogMessage(renderedMessage,
+                    logEvent.Level.ToString(),
+                    logEvent.Properties["SourceContext"].ToString());
+            }
+            else
+            {
+                LogMessageException(renderedMessage,
+                    logEvent.Exception.ToString(),
+                    logEvent.Level.ToString(),
+                    logEvent.Properties["SourceContext"].ToString());
+            }
+        }
+
+        private const int LogMessageEventId = 7;
+        [Event(LogMessageEventId, Message = "{0}")]
+        private void LogMessage(string logMessage, string logLevel, string sourceContext)
+        {
+            WriteEvent(LogMessageEventId, logMessage, logLevel, sourceContext);
+        }
+
+        private const int LogMessageExceptionEventId = 8;
+        [Event(LogMessageExceptionEventId, Message = "{0}\n{1}")]
+        private void LogMessageException(string logMessage, string exception, string logLevel, string sourceContext)
+        {
+            WriteEvent(LogMessageExceptionEventId, logMessage, exception, logLevel, sourceContext);
         }
         #endregion
 
