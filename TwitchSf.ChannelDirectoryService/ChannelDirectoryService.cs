@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Fabric;
 using System.Linq;
@@ -13,6 +14,7 @@ using Microsoft.ServiceFabric.Services.Remoting.Runtime;
 using Microsoft.ServiceFabric.Services.Runtime;
 using Serilog;
 using Serilog.Core;
+using SerilogTimings.Extensions;
 using TwitchSf.ChannelDirectoryService.Interfaces;
 using TwitchSf.Common.ServiceFabric;
 using TwitchSf.Common.TwitchApiClient;
@@ -67,21 +69,9 @@ namespace TwitchSf.ChannelDirectoryService
             }
         }
 
-        public Task<IEnumerable<TwitchChannel>> GetChannelsAsync()
+        public async Task<IEnumerable<TwitchChannel>> GetChannelsAsync()
         {
-            return Task.FromResult<IEnumerable<TwitchChannel>>(new List<TwitchChannel>
-            {
-                new TwitchChannel
-                {
-                    Id = "127506955",
-                    DisplayName = "playBATTLEGROUNDS"
-                },
-                new TwitchChannel
-                {
-                    Id = "36769016",
-                    DisplayName = "TimTheTatman"
-                }
-            });
+            return await _channelManager.GetAllChannels();
         }
 
         public Task AddChannelByNameAsync(string channelName)
@@ -94,23 +84,217 @@ namespace TwitchSf.ChannelDirectoryService
             throw new NotImplementedException();
         }
 
+        public Task RemoveChannelByName(string channelName)
+        {
+            return _channelManager.RemoveChannelByName(channelName);
+        }
+
         //internal
+    }
+
+    internal interface ITwitchChannelRepository
+    {
+        Task<bool> TryAddChannel(TwitchChannel channel);
+        Task UpdateChannel(TwitchChannel channel);
+        Task<IReadOnlyCollection<TwitchChannel>> GetAllChannels();
+        Task DeleteChannel(TwitchChannel channel);
+        Task DeleteChannelById(string channelId);
+        Task DeleteChannelByName(string channelName);
+    }
+
+    internal class TwitchChannelRepository : ITwitchChannelRepository, ISubsystem
+    {
+        private readonly ILogger _log;
+        private readonly IReliableStateManager _stateManager;
+
+        public TwitchChannelRepository(ILogger log, IReliableStateManager stateManager)
+        {
+            _log = log;
+            _stateManager = stateManager;
+        }
+
+        public async Task<bool> TryAddChannel(TwitchChannel channel)
+        {
+            var record = new TwitchChannelRecord
+            {
+                Id = channel.Id,
+                DisplayName = channel.DisplayName,
+                Followers = channel.Followers
+            };
+
+            using (var op = _log.BeginOperation("Adding channel to repository. Channel name {channelName} id {channelId}", channel.DisplayName, channel.Id))
+            using (ITransaction tx = _stateManager.CreateTransaction())
+            {
+                var channelDictionary = await GetChannelDictionary(tx);
+
+                if (!await channelDictionary.TryAddAsync(tx, record.Id, record))
+                {
+                    return false;
+                }
+
+                await tx.CommitAsync()
+                    .ContinueWith(task => RepositoryIndexes.Instance.AddRecord(record.Id, record.DisplayName),
+                    TaskContinuationOptions.OnlyOnRanToCompletion);
+
+                op.Complete();
+            }
+
+            return true;
+        }
+
+        public async Task UpdateChannel(TwitchChannel channel)
+        {
+            /*using (var tx = _stateManager.CreateTransaction())
+            {
+                var channelDictionary = await GetChannelDictionary(tx);
+
+                channelDictionary.
+
+                await tx.CommitAsync();
+            }*/
+        }
+
+        public async Task<IReadOnlyCollection<TwitchChannel>> GetAllChannels()
+        {
+            var channelList = new List<TwitchChannel>();
+
+            using (_log.TimeOperation("Fetching all channels"))
+            using (ITransaction tx = _stateManager.CreateTransaction())
+            {
+                var channelDictionary = await GetChannelDictionary(tx);
+
+                var enumerable = await channelDictionary.CreateEnumerableAsync(tx);
+                await enumerable.ForeachAsync(CancellationToken.None, pair =>
+                    {
+                        channelList.Add(new TwitchChannel
+                        {
+                            Id = pair.Value.Id,
+                            DisplayName = pair.Value.DisplayName,
+                            Followers = pair.Value.Followers
+                        });
+                    });
+            }
+
+            return channelList;
+        }
+
+        public Task DeleteChannel(TwitchChannel channel)
+        {
+            return DeleteChannelById(channel.Id);
+        }
+
+        public Task DeleteChannelByName(string channelName)
+        {
+            string channelId;
+            if (!RepositoryIndexes.Instance.TryGetChannelIdForName(channelName, out channelId))
+            {
+                // Let's treat this as non-existing
+                _log.Debug("DeleteChannelByName was called with {channelName}, but no ID existed in index", channelName);
+                return Task.CompletedTask;
+            }
+
+            return DeleteChannelById(channelId);
+        }
+
+        public async Task DeleteChannelById(string channelId)
+        {
+            using (var op = _log.BeginOperation("Removing channel {channelId} from repository", channelId))
+            using (ITransaction tx = _stateManager.CreateTransaction())
+            {
+                var channelDictionary = await GetChannelDictionary(tx);
+
+                ConditionalValue<TwitchChannelRecord> removedRecord = await channelDictionary.TryRemoveAsync(tx, channelId);
+                if (!removedRecord.HasValue)
+                {
+                    return;
+                }
+
+                TwitchChannelRecord record = removedRecord.Value;
+                await tx.CommitAsync()
+                    .ContinueWith(task => RepositoryIndexes.Instance.RemoveRecord(record.Id, record.DisplayName),
+                        TaskContinuationOptions.OnlyOnRanToCompletion);
+
+                op.Complete();
+            }
+        }
+
+        private Task<IReliableDictionary<string, TwitchChannelRecord>> GetChannelDictionary(ITransaction tx)
+            => _stateManager.GetOrAddAsync<IReliableDictionary<string, TwitchChannelRecord>>(tx, "ChannelRepository");
+
+        [DataContract]
+        private struct TwitchChannelRecord
+        {
+            [DataMember]
+            public string Id { get; set; }
+            [DataMember]
+            public string DisplayName { get; set; }
+            [DataMember]
+            public uint Followers { get; set; }
+        }
+
+        private class RepositoryIndexes
+        {
+            public static readonly RepositoryIndexes Instance = new RepositoryIndexes();
+
+            private readonly ConcurrentDictionary<string, string> _channelIdByName =
+                new ConcurrentDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            private readonly ConcurrentDictionary<string, string> _channelNameById =
+                new ConcurrentDictionary<string, string>();
+
+            private RepositoryIndexes()
+            {}
+
+            public void AddRecord(string channelId, string channelName)
+            {
+                _channelIdByName[channelName] = channelId;
+                _channelNameById[channelId] = channelName;
+            }
+
+            public void RemoveRecord(string channelId, string channelName)
+            {
+                _channelIdByName.TryRemove(channelName, out _);
+                _channelNameById.TryRemove(channelId, out _);
+            }
+
+            public bool TryGetChannelIdForName(string channelName, out string channelId)
+                => _channelIdByName.TryGetValue(channelName, out channelId);
+        }
+
+        async Task ISubsystem.Start()
+        {
+            // Build the dictionary first if it doesn't exist
+            using (ITransaction tx = _stateManager.CreateTransaction())
+            {
+                await GetChannelDictionary(tx);
+                await tx.CommitAsync();
+            }
+
+            using (_log.TimeOperation("Building lookup for twitch channels"))
+            using (ITransaction tx = _stateManager.CreateTransaction())
+            {
+                var channelDictionary = await GetChannelDictionary(tx);
+
+                var enumerable = await channelDictionary.CreateEnumerableAsync(tx);
+                await enumerable.ForeachAsync(CancellationToken.None,
+                    pair => RepositoryIndexes.Instance.AddRecord(pair.Key, pair.Value.DisplayName));
+            }
+        }
     }
 
     internal class TwitchChannelManager
     {
         private readonly ILogger _log;
         private readonly ITwitchClient _twitchClient;
-        private readonly IReliableStateManager _stateManager;
+        private readonly ITwitchChannelRepository _twitchChannelRepository;
 
-        public TwitchChannelManager(ILogger log, ITwitchClient twitchClient, IReliableStateManager stateManager)
+        public TwitchChannelManager(ILogger log, ITwitchClient twitchClient, ITwitchChannelRepository twitchChannelRepository)
         {
             _log = log;
             _twitchClient = twitchClient;
-            _stateManager = stateManager;
+            _twitchChannelRepository = twitchChannelRepository;
         }
 
-        public async Task AddChannelByName(string channelName)
+        public async Task<TwitchChannel> AddChannelByName(string channelName)
         {
             _log.Debug("Adding Twitch channel by name {channelName}", channelName);
 
@@ -118,76 +302,43 @@ namespace TwitchSf.ChannelDirectoryService
 
             if (userEntity == null)
             {
-                // IDK
-                return;
+                throw new AddChannelFailedException(AddChannelFailedReason.ChannelNotFound);
             }
 
             var channelEntity = await _twitchClient.GetChannelById(userEntity.Id);
 
             if (channelEntity == null)
             {
-                // IDK
-                return;
+                throw new AddChannelFailedException(AddChannelFailedReason.ChannelNotFound);
             }
 
-            var channelState = new TwitchChannelState(userEntity.DisplayName, channelEntity.Id);
-
-            using (var tx = _stateManager.CreateTransaction())
+            var channel = new TwitchChannel
             {
-                var channelList = await _stateManager.GetChannelList(tx);
+                DisplayName = userEntity.DisplayName,
+                Id = userEntity.Id,
+                Followers = channelEntity.Followers
+            };
 
-                if (await channelList.ContainsKeyAsync(tx, channelState.Id))
-                {
-                    _log.Information("Attempted to add channel {channelId}, which already existed", channelState.Id);
-                    return;
-                }
-
-                await channelList.AddAsync(tx, channelState.Id, channelState);
-
-                await tx.CommitAsync();
+            if (!await _twitchChannelRepository.TryAddChannel(channel))
+            {
+                _log.Debug("Adding channel {channelName} failed", channelName);
+                throw new AddChannelFailedException(AddChannelFailedReason.Internal);
             }
 
             _log.Debug("Channel {channelName} added", channelName);
+            return channel;
         }
-    }
 
-    internal static class StateConstants
-    {
-        public const string ChannelList = "channelList";
-    }
-
-    internal static class StateManagerExtensions
-    {
-        public static Task<IReliableDictionary<string, TwitchChannelState>> GetChannelList(this IReliableStateManager stateManager)
-            => stateManager.GetOrAddAsync<IReliableDictionary<string, TwitchChannelState>>(StateConstants.ChannelList);
-
-        public static Task<IReliableDictionary<string, TwitchChannelState>> GetChannelList(this IReliableStateManager stateManager, ITransaction transaction)
-            => stateManager.GetOrAddAsync<IReliableDictionary<string, TwitchChannelState>>(transaction, StateConstants.ChannelList);
-    }
-
-    internal class SubsystemManager
-    {
-        private readonly ILogger _log;
-        private readonly HashSet<ISubsystem> _subsystems;
-
-        public SubsystemManager(IEnumerable<ISubsystem> subsystems, ILogger log)
+        public async Task RemoveChannelByName(string channelName)
         {
-            _log = log;
-            _subsystems = new HashSet<ISubsystem>(subsystems);
+            _log.Debug("Removing channel by name {channelName}", channelName);
+
+            await _twitchChannelRepository.DeleteChannelByName(channelName);
         }
 
-        public async Task StartAll()
-        {
-            _log.Debug("Starting {0} subsystems", _subsystems.Count);
-
-            foreach (ISubsystem subsytem in _subsystems)
-            {
-                _log.Debug("Starting subsystem: {subsystemName}", subsytem.GetType());
-                await subsytem.Start();
-            }
-        }
+        public Task<IReadOnlyCollection<TwitchChannel>> GetAllChannels()
+            => _twitchChannelRepository.GetAllChannels();
     }
-
     internal interface ISubsystem
     {
         Task Start();
@@ -197,90 +348,25 @@ namespace TwitchSf.ChannelDirectoryService
     {
         private readonly ILogger _logger;
         private readonly IReliableStateManager _stateManager;
+        private readonly ITwitchClient _twitchClient;
         private Dictionary<string, ChannelUpdateState> _channelUpdateStates = new Dictionary<string, ChannelUpdateState>();
 
-        public TwitchChannelUpdaterSubsystem(IReliableStateManager stateManager, ILogger logger)
+        public TwitchChannelUpdaterSubsystem(IReliableStateManager stateManager, ILogger logger, ITwitchClient twitchClient)
         {
             _stateManager = stateManager;
             _logger = logger;
+            _twitchClient = twitchClient;
         }
 
         public async Task Start()
         {
             _channelUpdateStates.Clear();
-
-            var channelList = await _stateManager.GetChannelList();
-
-            using (var transaction = _stateManager.CreateTransaction())
-            {
-                var enumerable = await channelList.CreateEnumerableAsync(transaction, EnumerationMode.Unordered);
-                await enumerable.ForeachAsync(CancellationToken.None,
-                    pair => _channelUpdateStates.Add(pair.Key, new ChannelUpdateState()));
-            }
-
-            channelList.DictionaryChanged += ChannelListChanged;
-        }
-
-        private void ChannelListChanged(object sender, NotifyDictionaryChangedEventArgs<string, TwitchChannelState> notifyDictionaryChangedEventArgs)
-        {
-            _logger.Debug("Recieved dictionary notification {notificationType}", notifyDictionaryChangedEventArgs.Action);
-            // TODO: Implement
         }
 
         internal class ChannelUpdateState
         {
-            //
-        }
-    }
-
-    [DataContract]
-    internal struct TwitchChannelState
-    {
-        [DataMember]
-        public string DisplayName { get; private set; }
-
-        [DataMember]
-        public string Id { get; private set; }
-
-        public TwitchChannelState(string displayName, string id)
-        {
-            DisplayName = displayName;
-            Id = id;
-        }
-    }
-
-    [DataContract]
-    internal class ChannelDiscoveryTask
-    {
-        [DataMember]
-        public string ChannelName { get; }
-
-        public ChannelDiscoveryTask(string channelName)
-        {
-            ChannelName = channelName;
-        }
-    }
-
-    internal class ChannelDiscoveryTaskExecuter
-    {
-        private readonly ITwitchClient _twitchClient;
-
-        public ChannelDiscoveryTaskExecuter(ITwitchClient twitchClient)
-        {
-            _twitchClient = twitchClient;
-        }
-
-        public async Task ExecuteTask(ChannelDiscoveryTask discoveryTask)
-        {
-            var user = await _twitchClient.GetUserByName(discoveryTask.ChannelName);
-
-            if (user == null)
-            {
-                // IDK
-                return;
-            }
-
-            var channel = await _twitchClient.GetChannelById(user.Id);
+            public string ChannelId { get; set; }
+            public DateTime LastUpdate { get; set; }
         }
     }
 }

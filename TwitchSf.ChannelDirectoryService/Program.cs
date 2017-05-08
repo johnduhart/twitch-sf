@@ -63,6 +63,10 @@ namespace TwitchSf.ChannelDirectoryService
                             builder.RegisterType<TwitchChannelManager>()
                                 .AsSelf()
                                 .SingleInstance();
+                            builder.RegisterType<TwitchChannelRepository>()
+                                .As<ITwitchChannelRepository>()
+                                .As<ISubsystem>()
+                                .SingleInstance();
 
                             builder.RegisterType<TwitchChannelUpdaterSubsystem>().As<ISubsystem>().InstancePerDependency();
 
@@ -145,7 +149,7 @@ namespace TwitchSf.ChannelDirectoryService
 
         public EventSourceSink()
         {
-            _textFormatter = new MessageTemplateTextFormatter("[{Level}] {SourceContext}: {Message}{NewLine}{Exception}", null);
+            _textFormatter = new MessageTemplateTextFormatter("[{Level}] {SourceContext}: {Message}", null);
         }
 
         public void Emit(LogEvent logEvent)

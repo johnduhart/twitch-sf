@@ -16,5 +16,11 @@ namespace TwitchSf.ChannelDirectoryService.Interfaces
         /// </summary>
         [DataMember]
         public string DisplayName { get; set; }
+
+        /// <summary>
+        /// Number of followers a channel has
+        /// </summary>
+        [DataMember]
+        public uint Followers { get; set; }
     }
 }

@@ -36,14 +36,23 @@ namespace TwitchSf.WebSvc.Controllers
 
         // POST api/values
         [HttpPost("{userName}")]
-        public async Task Post(string userName)
+        public async Task<IActionResult> Post(string userName)
         {
             IChannelDirectoryService channelDirectoryService = ServiceProxy.Create<IChannelDirectoryService>(
                 new Uri("fabric:/TwitchSf/ChannelDirectoryService"),
                 ServicePartitionKey.Singleton,
                 targetReplicaSelector: TargetReplicaSelector.RandomReplica);
 
-            await channelDirectoryService.AddChannelByNameAsync(userName);
+            try
+            {
+                var channel = await channelDirectoryService.AddChannelByNameAsync(userName);
+
+                return Created("???", channel);
+            }
+            catch (AddChannelFailedException e) when(e.Reason == AddChannelFailedReason.ChannelNotFound)
+            {
+                return NotFound();
+            }
         }
 
         // PUT api/values/5
@@ -53,9 +62,15 @@ namespace TwitchSf.WebSvc.Controllers
         }
 
         // DELETE api/values/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        [HttpDelete("{userName}")]
+        public async Task Delete(string userName)
         {
+            IChannelDirectoryService channelDirectoryService = ServiceProxy.Create<IChannelDirectoryService>(
+                new Uri("fabric:/TwitchSf/ChannelDirectoryService"),
+                ServicePartitionKey.Singleton,
+                targetReplicaSelector: TargetReplicaSelector.RandomReplica);
+
+            await channelDirectoryService.RemoveChannelByName(userName);
         }
     }
 }

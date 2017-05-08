@@ -71,6 +71,9 @@
     <Reference Include="Serilog, Version=2.0.0.0, Culture=neutral, PublicKeyToken=24c2f752a8e58a10, processorArchitecture=MSIL">
       <HintPath>..\packages\Serilog.2.4.0\lib\net45\Serilog.dll</HintPath>
     </Reference>
+    <Reference Include="SerilogTimings, Version=2.2.0.0, Culture=neutral, PublicKeyToken=ea6fc7d88906f03a, processorArchitecture=MSIL">
+      <HintPath>..\packages\SerilogTimings.2.2.0\lib\net45\SerilogTimings.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Fabric, Version=5.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=AMD64">
@@ -95,6 +98,7 @@
     <Compile Include="ChannelDirectoryService.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ServiceEventSource.cs" />
+    <Compile Include="SubsystemManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="PackageRoot\Config\Settings.xml" />
